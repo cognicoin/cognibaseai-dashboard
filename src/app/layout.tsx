@@ -1,4 +1,4 @@
-// src/app/layout.tsx - COMPLETE FINAL LAYOUT WITH UNLOCK CHECKOUT SCRIPT
+// src/app/layout.tsx
 import type { Metadata } from 'next';
 import { Inter } from 'next/font/google';
 import './globals.css';
@@ -19,7 +19,7 @@ export default function RootLayout({
   return (
     <html lang="en">
       <head>
-        {/* Unlock Protocol Checkout Script - Required for subscription buttons */}
+        {/* Unlock Protocol Checkout Script */}
         <script src="https://pay.unlock-protocol.com/checkout.js" async></script>
       </head>
       <body className={inter.className + " bg-black text-white"}>

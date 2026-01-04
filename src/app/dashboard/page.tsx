@@ -1,9 +1,4 @@
-// src/app/dashboard/page.tsx - COMPLETE FINAL DASHBOARD CODE
-// - Tier logic fixed: 10k $COG stake = Observer only (no Observer+ without subscription)
-// - Higher stakes show "Upgrade Available" message
-// - Count-up animation for balances
-// - All other features intact
-
+// src/app/dashboard/page.tsx - FINAL COMPLETE & WORKING
 'use client';
 
 import { useAppKit } from '@reown/appkit/react';
@@ -13,7 +8,9 @@ import { useState, useEffect, useRef } from 'react';
 import Image from 'next/image';
 import Link from 'next/link';
 import { generateSmartDegenSummary } from '@/lib/groq';
+import { Web3Service } from '@unlock-protocol/unlock-js';
 
+// Force dynamic — no static prerendering
 export const dynamic = 'force-dynamic';
 
 const TOKEN = '0xaF4b5982BC89201551f1eD2518775a79a2705d47' as `0x${string}`;
@@ -72,8 +69,26 @@ const SUPPORTED_CHAINS = [
 ];
 
 const tierImages = {
-  0: null,
-  1: '/observer.png', // Only Observer badge shown for now
+  observer: '/observer.png',
+  'observer+': '/observer-plus.png',
+  analyst: '/analyst.png',
+  architect: '/architect.png',
+};
+
+// Unlock Protocol setup
+const UNLOCK_CONFIG = {
+  8453: {
+    provider: 'https://mainnet.base.org',
+    unlockAddress: '0x1b6d4d64848F6d1f0a9fC9d9d1bd0d4ca613B3D5',
+  },
+};
+
+const web3Service = new Web3Service(UNLOCK_CONFIG);
+
+const LOCKS = {
+  observerPlus: '0xeE2751a38e66BF0F88BeBE461e5699C5b8986310',
+  analyst: '0xc90b353BDcfF5F5A31cc257434aDB48Fb5C4cf51',
+  architect: '0xE00b66e2c5992AdA5550bA719ab46e0591C8c7aE',
 };
 
 export default function Dashboard() {
@@ -91,7 +106,10 @@ export default function Dashboard() {
   const [needsApproval, setNeedsApproval] = useState(false);
   const [isPageLoading, setIsPageLoading] = useState(true);
 
-  // Refs for count-up animation
+  // Subscription tier
+  const [subscriptionTier, setSubscriptionTier] = useState<'observer' | 'observer+' | 'analyst' | 'architect'>('observer');
+
+  // Count-up refs
   const walletBalanceRef = useRef<HTMLSpanElement>(null);
   const stakedAmountRef = useRef<HTMLSpanElement>(null);
 
@@ -104,30 +122,9 @@ export default function Dashboard() {
     args: address ? [address] : undefined,
   });
 
-  const [stakedBigInt = 0n, unstakeRequestTime = 0n, onChainTier = 0, canUnstakeRaw = false] = stakeInfoRaw || [];
-
+  const [stakedBigInt = 0n, unstakeRequestTime = 0n] = stakeInfoRaw || [];
   const stakedAmount = Number(formatEther(stakedBigInt));
 
-  // FIXED: Only Observer tier until subscription is implemented
-  const effectiveTier = stakedAmount >= 10_000 ? 1 : 0;
-
-  const getTierName = (staked: number) => {
-    if (staked >= 1_000_000) {
-      return 'Observer — Architect tier available with subscription';
-    }
-    if (staked >= 100_000) {
-      return 'Observer — Analyst tier available with subscription';
-    }
-    if (staked >= 10_000) {
-      return 'Observer 👁️';
-    }
-    return 'None';
-  };
-
-  const tierName = getTierName(stakedAmount);
-  const currentTierImage = tierImages[effectiveTier as keyof typeof tierImages] || null;
-
-  const canUnstake = Boolean(canUnstakeRaw);
   const unstakeRequested = unstakeRequestTime > 0n;
 
   const { data: currentAllowance } = useReadContract({
@@ -139,7 +136,47 @@ export default function Dashboard() {
 
   const { writeContractAsync, isPending } = useWriteContract();
 
-  // Count-up animation function
+  // Check Unlock subscription (client-side only)
+  useEffect(() => {
+    if (typeof window === 'undefined') return;
+    if (!address || !isConnected) {
+      setSubscriptionTier('observer');
+      return;
+    }
+
+    const checkSubscription = async () => {
+      try {
+        const now = Date.now() / 1000;
+
+        const keys = await Promise.all([
+          web3Service.getKeyByLockForOwner(LOCKS.observerPlus, address, 8453),
+          web3Service.getKeyByLockForOwner(LOCKS.analyst, address, 8453),
+          web3Service.getKeyByLockForOwner(LOCKS.architect, address, 8453),
+        ]);
+
+        if (keys[2]?.expiration > now) setSubscriptionTier('architect');
+        else if (keys[1]?.expiration > now) setSubscriptionTier('analyst');
+        else if (keys[0]?.expiration > now) setSubscriptionTier('observer+');
+        else setSubscriptionTier('observer');
+      } catch (error) {
+        console.error('Subscription check failed:', error);
+        setSubscriptionTier('observer');
+      }
+    };
+
+    checkSubscription();
+  }, [address, isConnected]);
+
+  const tierName = {
+    observer: 'Observer 👁️',
+    'observer+': 'Observer+ 👁️+',
+    analyst: 'Analyst 📊',
+    architect: 'Architect 🏆',
+  }[subscriptionTier];
+
+  const currentTierImage = tierImages[subscriptionTier];
+
+  // Count-up animation
   const animateCount = (element: HTMLSpanElement | null, target: number, duration = 1500) => {
     if (!element) return;
     let start = 0;
