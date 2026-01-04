@@ -1,0 +1,92 @@
+/* src/app/globals.css */
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+/* Global Reset & Base Styles */
+html,
+body {
+  margin: 0;
+  padding: 0;
+  height: 100%;
+  font-family: system-ui, -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+  background-color: #000;
+  color: #fff;
+  scroll-behavior: smooth;
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+}
+
+body {
+  background: radial-gradient(circle at 50% 50%, #0a0a0a 0%, #000000 100%);
+  overflow-x: hidden;
+}
+
+/* Subtle glass overlay for depth on sections */
+.glass-card {
+  background: rgba(17, 17, 17, 0.6);
+  backdrop-filter: blur(12px);
+  border: 1px solid rgba(0, 255, 255, 0.15);
+}
+
+/* Enhanced hover glow & scale */
+.hover-glow {
+  @apply transition-all duration-500 ease-out;
+}
+.hover-glow:hover {
+  @apply scale-105 shadow-2xl shadow-cyan-500/50;
+}
+
+/* Scroll reveal animation */
+.scroll-reveal {
+  opacity: 0;
+  transform: translateY(60px);
+  transition: opacity 1.2s ease-out, transform 1.2s ease-out;
+}
+.scroll-reveal.revealed {
+  opacity: 1;
+  transform: translateY(0);
+}
+
+/* Logo glow - futuristic neon effect */
+.logo-glow {
+  filter: drop-shadow(0 0 20px rgba(0, 255, 255, 0.6));
+  transition: filter 0.6s ease;
+}
+.logo-glow:hover {
+  filter: drop-shadow(0 0 30px rgba(0, 255, 255, 0.9)) drop-shadow(0 0 50px rgba(255, 136, 0, 0.6));
+}
+
+/* Custom scrollbar - sleek & minimal */
+::-webkit-scrollbar {
+  width: 8px;
+}
+::-webkit-scrollbar-track {
+  background: #111;
+}
+::-webkit-scrollbar-thumb {
+  background: #333;
+  border-radius: 4px;
+}
+::-webkit-scrollbar-thumb:hover {
+  background: #555;
+}
+
+/* Reown (WalletConnect) Modal Centering */
+[data-rk] .rk-modal-overlay {
+  display: flex !important;
+  align-items: center !important;
+  justify-content: center !important;
+}
+
+/* Mobile touch improvements */
+@layer utilities {
+  .tap-highlight-none {
+    -webkit-tap-highlight-color: transparent;
+  }
+}
+
+/* Optional: Subtle text gradient utility (used in landing) */
+.text-gradient {
+  @apply bg-gradient-to-r from-cyan-400 to-orange-400 bg-clip-text text-transparent;
+}
