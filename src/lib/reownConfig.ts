@@ -1,41 +1,16 @@
 // src/lib/reownConfig.ts
-import { createConfig, http } from 'wagmi';
-import { base } from 'wagmi/chains';
-import { walletConnect } from 'wagmi/connectors';
+import { WagmiAdapter } from '@reown/appkit-adapter-wagmi'
+import type { AppKitNetwork } from '@reown/appkit/networks'
+import { base } from '@reown/appkit/networks'
 
-/**
- * IMPORTANT:
- * - This file MUST be safe to import during Next.js build / prerender
- * - Do NOT throw if env vars are missing
- */
+export const projectId =
+  process.env.NEXT_PUBLIC_WALLETCONNECT_PROJECT_ID ?? ''
 
-const projectId = process.env.NEXT_PUBLIC_WALLETCONNECT_PROJECT_ID ?? '';
+// MUST be a non-empty tuple for AppKit (not a normal array)
+export const networks = [base] as [AppKitNetwork, ...AppKitNetwork[]]
 
-if (!projectId) {
-  console.warn(
-    '[Cogni] Missing NEXT_PUBLIC_WALLETCONNECT_PROJECT_ID. ' +
-      'Wallet connections will be disabled until this is set.'
-  );
-}
-
-export const wagmiAdapter = {
-  wagmiConfig: createConfig({
-    chains: [base],
-    transports: {
-      [base.id]: http(),
-    },
-    connectors: projectId
-      ? [
-          walletConnect({
-            projectId,
-            metadata: {
-              name: 'Cogni Analytics',
-              description: 'Token-gated crypto intelligence platform',
-              url: 'https://cognibaseai.io',
-              icons: ['https://cognibaseai.io/favicon.ico'],
-            },
-          }),
-        ]
-      : [],
-  }),
-};
+export const wagmiAdapter = new WagmiAdapter({
+  networks,
+  projectId,
+  ssr: true
+})
