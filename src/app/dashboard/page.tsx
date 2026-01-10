@@ -1,6 +1,6 @@
 'use client';
 
-import dynamic from 'next/dynamic'
+import nextDynamic from 'next/dynamic';
 import { useAppKit } from '@reown/appkit/react';
 import { useAccount, useBalance, useReadContract, useWriteContract } from 'wagmi';
 import { formatEther, parseEther } from 'viem';
@@ -11,13 +11,13 @@ import Navbar from '@/components/Navbar';
 import Skeleton from 'react-loading-skeleton';
 import 'react-loading-skeleton/dist/skeleton.css';
 
-const ConnectWalletButton = dynamic(
+const ConnectWalletButton = nextDynamic(
   () => import('@/components/ConnectWalletButton'),
   { ssr: false }
-)
-
+);
 
 export const dynamic = 'force-dynamic';
+
 
 // === Deployed contract addresses (Base) ===
 const TOKEN = '0xaF4b5982BC89201551f1eD2518775a79a2705d47' as `0x${string}`;
