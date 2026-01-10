@@ -1,33 +1,41 @@
 // src/lib/reownConfig.ts
-import { WagmiAdapter } from '@reown/appkit-adapter-wagmi';
-import { cookieStorage, createStorage } from 'wagmi';
-import { base, mainnet, arbitrum, optimism, polygon, bsc, avalanche } from '@reown/appkit/networks';
+import { createConfig, http } from 'wagmi';
+import { base } from 'wagmi/chains';
+import { walletConnect } from 'wagmi/connectors';
 
-export const projectId = process.env.NEXT_PUBLIC_REOWN_PROJECT_ID!;
+/**
+ * IMPORTANT:
+ * - This file MUST be safe to import during Next.js build / prerender
+ * - Do NOT throw if env vars are missing
+ */
+
+const projectId = process.env.NEXT_PUBLIC_WALLETCONNECT_PROJECT_ID ?? '';
 
 if (!projectId) {
-  throw new Error('NEXT_PUBLIC_REOWN_PROJECT_ID is not set. Please add it to your .env.local file.');
+  console.warn(
+    '[Cogni] Missing NEXT_PUBLIC_WALLETCONNECT_PROJECT_ID. ' +
+      'Wallet connections will be disabled until this is set.'
+  );
 }
 
-// Add more networks to support the multi-chain scanner on the dashboard
-export const networks = [
-  base,        // Primary chain for $COG
-  mainnet,
-  arbitrum,
-  optimism,
-  polygon,
-  bsc,
-  avalanche,
-  // Add more if needed later (e.g. fantom, gnosis, etc.)
-];
-
-export const wagmiAdapter = new WagmiAdapter({
-  storage: createStorage({
-    storage: cookieStorage, // Persistent wallet connection across tabs & sessions
+export const wagmiAdapter = {
+  wagmiConfig: createConfig({
+    chains: [base],
+    transports: {
+      [base.id]: http(),
+    },
+    connectors: projectId
+      ? [
+          walletConnect({
+            projectId,
+            metadata: {
+              name: 'Cogni Analytics',
+              description: 'Token-gated crypto intelligence platform',
+              url: 'https://cognibaseai.io',
+              icons: ['https://cognibaseai.io/favicon.ico'],
+            },
+          }),
+        ]
+      : [],
   }),
-  ssr: true,
-  projectId,
-  networks,
-});
-
-export const config = wagmiAdapter.wagmiConfig;
+};
