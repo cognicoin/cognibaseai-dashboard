@@ -10,7 +10,7 @@ import { useAccount, useBalance, useReadContract, useWriteContract } from 'wagmi
 import { formatEther, parseEther } from 'viem';
 import { useState, useEffect } from 'react';
 import toast from 'react-hot-toast';
-import Navbar from '@/components/Navbar'; // REAL imported Navbar (no inline duplicate!)
+import Navbar from '@/components/Navbar'; // REAL imported Navbar (with mobile menu, disconnect, theme sync)
 import Skeleton from 'react-loading-skeleton';
 import 'react-loading-skeleton/dist/skeleton.css';
 import { motion } from 'framer-motion';
