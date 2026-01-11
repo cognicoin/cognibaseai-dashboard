@@ -1,50 +1,37 @@
-// src/app/AppKitProvider.tsx
+// src/app/AppKitProvider.tsx - FIXED VERSION
 'use client';
 
+import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
+import { WagmiProvider } from 'wagmi';
 import { createAppKit } from '@reown/appkit/react';
-import type { AppKitNetwork } from '@reown/appkit/networks';
+import { base } from 'wagmi/chains';
+import { wagmiAdapter } from '@/lib/reownConfig';
 
-import { 
-  base, 
-  mainnet, 
-  arbitrum, 
-  optimism, 
-  polygon, 
-  bsc, 
-  avalanche 
-} from '@reown/appkit/networks';
+const queryClient = new QueryClient();
 
-import { projectId, wagmiAdapter } from '@/lib/reownConfig';
-
-const networks = [
-  base,
-  mainnet,
-  arbitrum,
-  optimism,
-  polygon,
-  bsc,
-  avalanche,
-] as [AppKitNetwork, ...AppKitNetwork[]];
+const projectId = process.env.NEXT_PUBLIC_WALLETCONNECT_PROJECT_ID!;
 
 createAppKit({
   adapters: [wagmiAdapter],
-  networks,
   projectId,
+  networks: [base],
   metadata: {
-    name: 'Cogni Analytics Dashboard',
-    description: 'Onchain Intelligence • $COG Holders • Token Scanner & AI Summaries',
-    url: 'https://cognibaseai.io',
-    icons: ['https://cognibaseai.io/cogni-logo.png'],
+    name: 'Cogni Analytics',
+    description: 'Intelligence-First Token-Gated Crypto SaaS Platform',
+    url: 'https://cognibase.ai',
+    icons: ['https://cognibase.ai/favicon.ico'],
   },
   features: {
-    email: true,
-    socials: ['google', 'github', 'x', 'discord'],
-    allWallets: true,
     analytics: true,
   },
-  themeMode: 'dark',
 });
 
 export function AppKitProvider({ children }: { children: React.ReactNode }) {
-  return <>{children}</>;
+  return (
+    <WagmiProvider config={wagmiAdapter.wagmiConfig}>
+      <QueryClientProvider client={queryClient}>
+        {children}
+      </QueryClientProvider>
+    </WagmiProvider>
+  );
 }

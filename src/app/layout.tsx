@@ -1,4 +1,4 @@
-// src/app/layout.tsx
+// src/app/layout.tsx - COMPLETE ROOT LAYOUT
 import type { Metadata } from 'next';
 import { Inter } from 'next/font/google';
 import './globals.css';
@@ -7,8 +7,8 @@ import { AppKitProvider } from './AppKitProvider';
 const inter = Inter({ subsets: ['latin'] });
 
 export const metadata: Metadata = {
-  title: 'CogniBaseAI - Intelligence-First Crypto Analytics',
-  description: 'Token-gated dashboard with GoPlus scanner, Groq AI summaries, and $COG staking',
+  title: 'Cogni Analytics',
+  description: 'Intelligence-First Token-Gated Crypto SaaS Platform',
 };
 
 export default function RootLayout({
@@ -17,12 +17,8 @@ export default function RootLayout({
   children: React.ReactNode;
 }) {
   return (
-    <html lang="en">
-      <head>
-        {/* Unlock Protocol Checkout Script */}
-        <script src="https://pay.unlock-protocol.com/checkout.js" async></script>
-      </head>
-      <body className={inter.className + " bg-black text-white"}>
+    <html lang="en" suppressHydrationWarning>
+      <body className={inter.className}>
         <AppKitProvider>
           {children}
         </AppKitProvider>

@@ -1,4 +1,4 @@
-// Full code for postcss.config.js (place in project root)
+// postcss.config.js
 module.exports = {
   plugins: {
     tailwindcss: {},

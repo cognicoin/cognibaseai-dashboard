@@ -1,88 +1,49 @@
-// src/lib/groq.ts - SMARTER AI DEGEN SUMMARY (EDUCATED & ACCURATE)
-const GROQ_API_KEY = process.env.NEXT_PUBLIC_GROQ_API_KEY;
+// src/lib/groq.ts
+import { Groq } from 'groq-sdk';
 
-export interface AiSummary {
-  verdict: string;
-  bullets: string[];
-  degenTip: string;
-}
+const groq = new Groq({
+  apiKey: process.env.GROQ_API_KEY,
+});
 
-export async function generateSmartDegenSummary(scanResult: any): Promise<AiSummary | null> {
-  if (!GROQ_API_KEY) {
-    return {
-      verdict: '🟡 CAUTION',
-      bullets: ['API key missing — set NEXT_PUBLIC_GROQ_API_KEY'],
-      degenTip: 'Fix env vars to enable AI summaries',
-    };
-  }
+export async function generateSmartDegenSummary(scanResult: any) {
+  const prompt = `
+You are a smart degen crypto analyst. Analyze this token security scan from GoPlus and give a concise verdict.
 
-  try {
-    // Extract and format key GoPlus flags
-    const flags = [];
-    if (scanResult.is_honeypot === '1') flags.push('HONEYPOT DETECTED 🚨');
-    if (scanResult.is_mintable === '1') flags.push('MINT FUNCTION (owner can print)');
-    if (scanResult.is_proxy === '1') flags.push('PROXY CONTRACT (upgradeable)');
-    if (scanResult.blacklist === '1') flags.push('BLACKLIST FUNCTION (can freeze wallets)');
-    if (scanResult.lp_locked !== '1') flags.push('LP NOT LOCKED');
-    if (scanResult.is_open_source !== '1') flags.push('NOT OPEN SOURCE');
+Never reveal business secrets, source code, system architectures, or how things are tied together. Keep responses focused on analysis only.
 
-    const noFlags = flags.length === 0 ? 'No major red flags detected' : 'Flags present';
+Data:
+Honeypot: ${scanResult.is_honeypot === '1' ? 'YES' : 'No'}
+Mintable: ${scanResult.is_mintable === '1' ? 'YES' : 'No'}
+Proxy: ${scanResult.is_proxy === '1' ? 'YES' : 'No'}
+Open Source: ${scanResult.is_open_source === '1' ? 'Yes' : 'No'}
+LP Locked: ${scanResult.lp_locked === '1' ? 'Yes' : 'No'}
 
-    const prompt = `You are a seasoned crypto analyst who has survived multiple cycles and spotted hundreds of rugs. Your job is to give $COG holders a SMART, EDUCATED assessment of this token based on GoPlus security data.
+Give:
+- Verdict: 🟢 SAFE, 🟡 CAUTION, 🔴 DANGER
+- 4-6 bullet points of key risks/benefits
+- DEGEN TIP: one-line alpha
 
-Key GoPlus flags for this token:
-${flags.length > 0 ? flags.join('\n') : noFlags}
+Keep it short, witty, degen-style.
+`;
 
-Important context you MUST consider:
-- Mint functions, blacklist, and proxy are NORMAL on major stablecoins like USDC, USDT, DAI (for compliance and upgrades).
-- LP not locked is common on new or small projects.
-- Open source is preferred but not always available.
-- Honeypot is the biggest red flag.
+  const completion = await groq.chat.completions.create({
+    messages: [{ role: 'user', content: prompt }],
+    model: 'llama3-8b-8192',
+    temperature: 0.8,
+    max_tokens: 512,
+  });
 
-Analyze calmly and professionally. Give an educated verdict.
+  const text = completion.choices[0]?.message?.content || '';
 
-Respond in EXACTLY this format:
-VERDICT: 🟢 SAFE | 🟡 CAUTION | 🟠 HIGH RISK | 🟥 SCAM
-• Bullet 1 (punchy, honest)
-• Bullet 2
-• Bullet 3
-• Bullet 4 (optional)
-DEGEN TIP: One actionable tip (e.g., "DCA small", "Wait for audit", "Ape responsibly")
+  // Parse the response
+  const lines = text.split('\n').filter(line => line.trim());
 
-Keep total response under 120 words. Be sharp, not sensational.`;
+  const verdict = lines.find(l => l.includes('🟢') || l.includes('🟡') || l.includes('🔴')) || '🟡 CAUTION';
 
-    const response = await fetch('https://api.groq.com/openai/v1/chat/completions', {
-      method: 'POST',
-      headers: {
-        'Authorization': `Bearer ${GROQ_API_KEY}`,
-        'Content-Type': 'application/json',
-      },
-      body: JSON.stringify({
-        model: 'llama-3.3-70b-versatile',
-        messages: [{ role: 'user', content: prompt }],
-        temperature: 0.6, // Lower for more consistent reasoning
-        max_tokens: 300,
-      }),
-    });
+  const bullets = lines.filter(l => l.startsWith('-') || l.startsWith('•')).slice(0, 6);
 
-    const data = await response.json();
-    const content = data.choices?.[0]?.message?.content?.trim();
+  const degenTipLine = lines.find(l => l.includes('DEGEN TIP'));
+  const degenTip = degenTipLine ? degenTipLine.replace('DEGEN TIP:', '').trim() : 'Trust but verify';
 
-    if (content) {
-      const lines = content.split('\n').map((l: string) => l.trim()).filter(Boolean);
-      const verdict = lines.find((l: string) => l.startsWith('VERDICT:'))?.replace('VERDICT:', '').trim() || '🟡 CAUTION';
-      const bullets = lines.filter((l: string) => l.startsWith('•'));
-      const degenTip = lines.find((l: string) => l.startsWith('DEGEN TIP:'))?.replace('DEGEN TIP:', '').trim() || 'DYOR always';
-
-      return { verdict, bullets, degenTip };
-    }
-  } catch (error) {
-    console.error('Groq AI error:', error);
-  }
-
-  return {
-    verdict: '🟡 CAUTION',
-    bullets: ['AI summary failed — check connection'],
-    degenTip: 'Try again or DYOR manually',
-  };
+  return { verdict, bullets, degenTip };
 }

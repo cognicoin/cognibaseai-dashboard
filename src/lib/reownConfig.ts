@@ -1,33 +1,37 @@
 // src/lib/reownConfig.ts
+import { cookieStorage, createStorage } from '@wagmi/core';
 import { WagmiAdapter } from '@reown/appkit-adapter-wagmi';
-import { cookieStorage, createStorage } from 'wagmi';
-import { base, mainnet, arbitrum, optimism, polygon, bsc, avalanche } from '@reown/appkit/networks';
+import type { AppKitNetwork } from '@reown/appkit/networks';
+import { base } from '@reown/appkit/networks';
 
-export const projectId = process.env.NEXT_PUBLIC_REOWN_PROJECT_ID!;
+// We support both names to avoid confusion.
+// Your Vercel logs show NEXT_PUBLIC_WALLETCONNECT_PROJECT_ID.
+export const projectId =
+  process.env.NEXT_PUBLIC_WALLETCONNECT_PROJECT_ID ||
+  process.env.NEXT_PUBLIC_PROJECT_ID ||
+  '';
 
-if (!projectId) {
-  throw new Error('NEXT_PUBLIC_REOWN_PROJECT_ID is not set. Please add it to your .env.local file.');
-}
+// AppKit expects a non-empty tuple type: [AppKitNetwork, ...AppKitNetwork[]]
+export const networks = [base] as unknown as [AppKitNetwork, ...AppKitNetwork[]];
 
-// Add more networks to support the multi-chain scanner on the dashboard
-export const networks = [
-  base,        // Primary chain for $COG
-  mainnet,
-  arbitrum,
-  optimism,
-  polygon,
-  bsc,
-  avalanche,
-  // Add more if needed later (e.g. fantom, gnosis, etc.)
-];
+export const siteUrl =
+  process.env.NEXT_PUBLIC_SITE_URL || 'https://cognibaseai.io';
+
+export const metadata = {
+  name: 'CogniBase AI',
+  description: 'Intelligence-first, token-gated crypto SaaS platform',
+  url: siteUrl, // must match your deployed domain
+  icons: [`${siteUrl}/icon.png`].filter(Boolean)
+};
 
 export const wagmiAdapter = new WagmiAdapter({
-  storage: createStorage({
-    storage: cookieStorage, // Persistent wallet connection across tabs & sessions
-  }),
-  ssr: true,
-  projectId,
+  projectId: projectId || 'disabled',
   networks,
+  ssr: true,
+  // Cookie storage helps SSR hydration / reduces mismatch issues
+  storage: createStorage({
+    storage: cookieStorage
+  })
 });
 
-export const config = wagmiAdapter.wagmiConfig;
+export const wagmiConfig = wagmiAdapter.wagmiConfig;
