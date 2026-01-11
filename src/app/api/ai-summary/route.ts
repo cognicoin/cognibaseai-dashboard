@@ -1,69 +1,151 @@
 // src/app/api/ai-summary/route.ts
+// FIXED VERSION - January 10, 2026
+// Uses correct PlanName type from rateLimit.ts, modern unlock tier resolution
+
 import { Groq } from 'groq-sdk';
 import { NextResponse } from 'next/server';
+import { rateLimit, PlanName } from '@/lib/rateLimit'; // Import exact PlanName type
+import { getValidPaidTier } from '@/lib/unlock';
 
-const groq = new Groq({ apiKey: process.env.GROQ_API_KEY });
+const groq = new Groq({
+  apiKey: process.env.GROQ_API_KEY,
+});
 
-// Helper to extract valid JSON from Groq response (fixes "parse failed")
-function extractJSON(text: string) {
-  try {
-    const start = text.indexOf('{');
-    const end = text.lastIndexOf('}');
-    if (start === -1 || end === -1) throw new Error('No JSON block found');
-    return JSON.parse(text.substring(start, end + 1));
-  } catch {
-    return {
-      verdict: 'Analysis Unavailable',
-      bullets: ['The AI response could not be parsed. Please try again.'],
-      degenTip: 'Retry the scan',
-    };
+/**
+ * Resolves user's current paid tier (or fallback) and maps to rateLimit-compatible PlanName
+ */
+async function resolvePlan(wallet: `0x${string}`): Promise<PlanName> {
+  const paidTier = await getValidPaidTier(wallet);
+
+  // Map Unlock paid tiers to exact PlanName strings from rateLimit.ts
+  switch (paidTier) {
+    case 'architect':
+      return 'architect';
+    case 'analyst':
+      return 'analyst';
+    case 'observer+':
+      return 'observer+';
+    default:
+      return 'observer'; // fallback when no paid tier (matches base stake observer)
   }
 }
 
 export async function POST(req: Request) {
   try {
-    if (!process.env.GROQ_API_KEY) {
-      console.error('GROQ_API_KEY not set');
-      return NextResponse.json({ error: 'Server configuration error' }, { status: 500 });
+    const body = await req.json();
+    const { goPlus, kpis, risk, wallet } = body;
+
+    // Validate wallet (required for tier & rate limiting)
+    const w = String(wallet ?? '').trim();
+    if (!w.startsWith('0x') || w.length !== 42) {
+      return NextResponse.json(
+        { error: 'Valid connected wallet address required for rate limiting & tier checks' },
+        { status: 401 }
+      );
     }
 
-    const { scanResult } = await req.json();
+    // Resolve current effective plan & apply rate limit
+    const plan: PlanName = await resolvePlan(w as `0x${string}`);
+    const rlDecision = rateLimit({ wallet: w, plan, endpoint: 'ai-summary' });
 
-    if (!scanResult) {
-      return NextResponse.json({ error: 'No scan data provided' }, { status: 400 });
+    if (!rlDecision.allowed) {
+      return NextResponse.json(
+        {
+          error: rlDecision.message || 'Rate limit exceeded for your current tier',
+          rate: {
+            used: rlDecision.used,
+            limit: rlDecision.limit,
+            remaining: rlDecision.remaining,
+            reset: rlDecision.reset,
+            plan,
+          },
+        },
+        { status: 429 }
+      );
     }
 
-    const prompt = `You are a sharp degen crypto analyst. Analyze this token security data from GoPlusLabs.
-Focus on: honeypot risk, mint/freeze authority, taxes, LP locks, ownership renounced, proxy contract, open source.
-Be direct and concise.
+    // Validate required GoPlus data
+    if (!goPlus || typeof goPlus !== 'object') {
+      return NextResponse.json({ error: 'Missing or invalid GoPlus security data' }, { status: 400 });
+    }
 
-Data: ${JSON.stringify(scanResult)}
+    // Build structured prompt
+    const prompt = `
+You are Cogni AI: a crypto security analyst + smart degen.
 
-Respond ONLY with valid JSON in this exact format:
+Primary source: GoPlus token security scan
+Supporting data: Dune KPIs + computed risk score
+
+Core rules:
+- NEVER give financial advice or price predictions
+- Be brutally honest about risks (honeypot, mintable, proxy, taxes, ownership)
+- Use KPIs to adjust confidence (low holders/volume = higher risk, high volatility = caution)
+- Keep output concise, degen-style, actionable
+
+Return ONLY valid JSON object with these exact keys:
 {
-  "verdict": "STRONG BUY / BUY / NEUTRAL / SELL / STRONG SELL",
-  "bullets": ["point 1", "point 2", "point 3", "point 4", "point 5"],
-  "degenTip": "One-sentence alpha call"
-}`;
+  "verdict": "LOW RISK" | "MEDIUM RISK" | "HIGH RISK",
+  "bullets": array of 4-6 short bullet points highlighting key risks/benefits,
+  "degenTip": one single sentence actionable take
+}
+
+Input data:
+
+GoPlus security scan:
+${JSON.stringify(goPlus, null, 2)}
+
+Dune KPIs:
+${JSON.stringify(kpis || {}, null, 2)}
+
+Computed risk score:
+${JSON.stringify(risk || {}, null, 2)}
+    `.trim();
 
     const completion = await groq.chat.completions.create({
       messages: [{ role: 'user', content: prompt }],
-      model: 'llama-3.1-8b-instant',  // Free-tier compatible, fast & reliable
+      model: 'llama-3.1-8b-instant',
       temperature: 0.7,
-      max_tokens: 512,
+      max_tokens: 600,
+      top_p: 0.9,
     });
 
-    const raw = completion.choices[0]?.message?.content || '{}';
-    console.log('Raw Groq response:', raw); // For debugging in Vercel logs
+    const rawResponse = completion.choices[0]?.message?.content || '{}';
+    
+    // Extract JSON safely
+    const parsed = (() => {
+      try {
+        const start = rawResponse.indexOf('{');
+        const end = rawResponse.lastIndexOf('}');
+        if (start === -1 || end === -1) throw new Error('No JSON found');
+        return JSON.parse(rawResponse.slice(start, end + 1));
+      } catch {
+        return {
+          verdict: 'Analysis Unavailable',
+          bullets: ['Failed to parse AI response. Please try again.'],
+          degenTip: 'Run it back.',
+        };
+      }
+    })();
 
-    const summary = extractJSON(raw);
-    return NextResponse.json(summary);
-  } catch (error: any) {
-    console.error('AI Summary error:', error);
     return NextResponse.json({
-      verdict: 'Error',
-      bullets: ['Service temporarily unavailable'],
-      degenTip: 'Please try again later',
-    }, { status: 500 });
+      ...parsed,
+      rate: {
+        used: rlDecision.used,
+        limit: rlDecision.limit,
+        remaining: rlDecision.remaining,
+        reset: rlDecision.reset,
+        plan,
+      },
+    });
+  } catch (error: any) {
+    console.error('[ai-summary] Error:', error);
+    return NextResponse.json(
+      {
+        verdict: 'Error',
+        bullets: ['Service temporarily unavailable. Please try again soon.'],
+        degenTip: 'The AI is taking a smoke break. Retry in a minute.',
+      },
+      { status: 500 }
+    );
   }
 }
