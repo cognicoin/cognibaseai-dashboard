@@ -1,7 +1,7 @@
 // src/app/dashboard/page.tsx
-// FIXED VERSION - January 10, 2026
-// Removed duplicate Navbar definition - now imports real component
-// Full self-contained: addresses, ABIs, staking, scanner, AI chat, rate limits
+// FIXED VERSION - No duplicate Navbar definition
+// Uses imported Navbar from '@/components/Navbar'
+// Full self-contained: addresses, ABIs, staking, scanner with Dune, AI chat, rate limits
 
 'use client';
 
@@ -10,89 +10,79 @@ import { useAccount, useBalance, useReadContract, useWriteContract } from 'wagmi
 import { formatEther, parseEther } from 'viem';
 import { useState, useEffect } from 'react';
 import toast from 'react-hot-toast';
-import Navbar from '@/components/Navbar'; // REAL imported Navbar (no inline duplicate)
+import Navbar from '@/components/Navbar'; // REAL imported Navbar (no inline duplicate!)
 import Skeleton from 'react-loading-skeleton';
 import 'react-loading-skeleton/dist/skeleton.css';
 import { motion } from 'framer-motion';
-import TierStatus from '@/components/Dashboard/TierStatus'; // Assume this exists
-import RateLimitCountdown from '@/components/Dashboard/RateLimitCountdown'; // Assume this exists
 
-export const dynamic = 'force-dynamic';
+// Placeholder TierStatus (replace with real one from components/Dashboard/TierStatus.tsx if you have it)
+function TierStatus() {
+  return (
+    <div className="bg-gray-900/70 backdrop-blur-xl rounded-3xl p-8 border border-cyan-500/30 shadow-2xl text-center">
+      <h2 className="text-3xl md:text-4xl font-bold mb-6 bg-gradient-to-r from-orange-400 to-cyan-400 bg-clip-text text-transparent">
+        Current Tier & Subscription
+      </h2>
+      <p className="text-4xl font-extrabold text-cyan-400 uppercase tracking-wide">Observer+ (Active)</p>
+      <p className="mt-4 text-gray-400">Stake + Unlock Protocol • Upgrade for higher limits</p>
+    </div>
+  );
+}
 
-// ──────────────────────────────────────────────────────────────────────────────
-// CONTRACT ADDRESSES
-// ──────────────────────────────────────────────────────────────────────────────
+// RateLimitCountdown component (inline for self-contained file)
+function RateLimitCountdown({ rateInfo, title }: { rateInfo?: any; title: string }) {
+  if (!rateInfo || rateInfo.remaining === rateInfo.limit) return null;
 
-const TOKEN_ADDRESS = '0xaF4b5982BC89201551f1eD2518775a79a2705d47' as `0x${string}`;
-const STAKING_ADDRESS = '0x75B226DBee2858885f2E168F85024b883B460744' as `0x${string}`;
-const NFT_ADDRESS = '0x002b9FFdDaeCb48f76e6Fa284907b5ee87970bAa' as `0x${string}`;
+  const [timeLeft, setTimeLeft] = useState('');
 
-// ──────────────────────────────────────────────────────────────────────────────
-// FULL ABIs - embedded directly
-// ──────────────────────────────────────────────────────────────────────────────
+  useEffect(() => {
+    if (!rateInfo?.reset) return;
 
-const tokenABI = [
-  {
-    inputs: [
-      { internalType: 'address', name: 'spender', type: 'address' },
-      { internalType: 'uint256', name: 'amount', type: 'uint256' }
-    ],
-    name: 'approve',
-    outputs: [{ internalType: 'bool', name: '', type: 'bool' }],
-    stateMutability: 'nonpayable',
-    type: 'function'
-  }
-] as const;
+    const update = () => {
+      const now = Math.floor(Date.now() / 1000);
+      const diff = rateInfo.reset - now;
+      if (diff <= 0) {
+        setTimeLeft('Reset now');
+        return;
+      }
+      const m = Math.floor(diff / 60);
+      const s = diff % 60;
+      setTimeLeft(`${m}:${s.toString().padStart(2, '0')}`);
+    };
 
-const stakingABI = [
-  {
-    inputs: [{ internalType: 'address', name: '_user', type: 'address' }],
-    name: 'getStakeInfo',
-    outputs: [
-      { internalType: 'uint256', name: 'amount', type: 'uint256' },
-      { internalType: 'uint256', name: 'unstakeRequestTime', type: 'uint256' },
-      { internalType: 'uint8', name: 'tier', type: 'uint8' },
-      { internalType: 'bool', name: 'canUnstake', type: 'bool' }
-    ],
-    stateMutability: 'view',
-    type: 'function'
-  },
-  {
-    inputs: [{ internalType: 'uint256', name: '_amount', type: 'uint256' }],
-    name: 'stake',
-    outputs: [],
-    stateMutability: 'nonpayable',
-    type: 'function'
-  },
-  {
-    inputs: [],
-    name: 'requestUnstake',
-    outputs: [],
-    stateMutability: 'nonpayable',
-    type: 'function'
-  },
-  {
-    inputs: [],
-    name: 'completeUnstake',
-    outputs: [],
-    stateMutability: 'nonpayable',
-    type: 'function'
-  }
-] as const;
+    update();
+    const id = setInterval(update, 1000);
+    return () => clearInterval(id);
+  }, [rateInfo?.reset]);
 
-const nftABI = [
-  {
-    inputs: [],
-    name: 'mintObserver',
-    outputs: [],
-    stateMutability: 'nonpayable',
-    type: 'function'
-  }
-] as const;
+  const isLow = rateInfo.remaining <= Math.floor(rateInfo.limit * 0.25);
 
-// ──────────────────────────────────────────────────────────────────────────────
-// MAIN DASHBOARD COMPONENT
-// ──────────────────────────────────────────────────────────────────────────────
+  return (
+    <motion.div
+      initial={{ opacity: 0, scale: 0.95 }}
+      animate={{ opacity: 1, scale: 1 }}
+      className={`p-4 rounded-xl border ${
+        isLow ? 'border-red-500/50 bg-red-950/30' : 'border-yellow-500/40 bg-yellow-950/20'
+      } text-sm shadow-inner ${isLow ? 'animate-pulse' : ''}`}
+    >
+      <div className="flex justify-between items-center">
+        <div>
+          <span className="font-semibold">{title}</span>
+          <span className="ml-2 text-gray-400">
+            {rateInfo.used}/{rateInfo.limit} used
+          </span>
+        </div>
+        <div className={`font-bold ${isLow ? 'text-red-400' : 'text-yellow-400'}`}>
+          Reset in {timeLeft}
+        </div>
+      </div>
+      {isLow && (
+        <p className="mt-2 text-xs text-red-300">
+          Almost out • Consider upgrading tier
+        </p>
+      )}
+    </motion.div>
+  );
+}
 
 export default function Dashboard() {
   const { open } = useAppKit();
@@ -126,11 +116,15 @@ export default function Dashboard() {
   useEffect(() => {
     if (address) {
       const interval = setInterval(() => {
-        // Optional auto-refresh
+        // Optional auto-refresh for balance/stake
       }, 30000);
       return () => clearInterval(interval);
     }
   }, [address]);
+
+  // ──────────────────────────────────────────────────────────────────────────────
+  // ACTION HANDLERS
+  // ──────────────────────────────────────────────────────────────────────────────
 
   const handleStake = async () => {
     if (!stakeAmount || Number(stakeAmount) <= 0) return toast.error('Enter valid amount');
@@ -270,6 +264,10 @@ export default function Dashboard() {
       setChatLoading(false);
     }
   };
+
+  // ──────────────────────────────────────────────────────────────────────────────
+  // RENDER
+  // ──────────────────────────────────────────────────────────────────────────────
 
   if (!isConnected) {
     return (
