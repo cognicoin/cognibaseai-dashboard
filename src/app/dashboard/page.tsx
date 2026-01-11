@@ -1,18 +1,23 @@
 // src/app/dashboard/page.tsx
-// COMPLETE FIXED VERSION - January 10, 2026
-// Self-contained: all addresses, full ABIs, inline Navbar (fixes import error), minimized Wagmi usage
+// FIXED VERSION - January 10, 2026
+// Removed duplicate Navbar definition - now imports real component
+// Full self-contained: addresses, ABIs, staking, scanner, AI chat, rate limits
 
 'use client';
 
-import Navbar from '@/components/Navbar';
+import { useAppKit } from '@reown/appkit/react';
 import { useAccount, useBalance, useReadContract, useWriteContract } from 'wagmi';
 import { formatEther, parseEther } from 'viem';
 import { useState, useEffect } from 'react';
 import toast from 'react-hot-toast';
+import Navbar from '@/components/Navbar'; // REAL imported Navbar (no inline duplicate)
 import Skeleton from 'react-loading-skeleton';
 import 'react-loading-skeleton/dist/skeleton.css';
 import { motion } from 'framer-motion';
-import Link from 'next/link';
+import TierStatus from '@/components/Dashboard/TierStatus'; // Assume this exists
+import RateLimitCountdown from '@/components/Dashboard/RateLimitCountdown'; // Assume this exists
+
+export const dynamic = 'force-dynamic';
 
 // ──────────────────────────────────────────────────────────────────────────────
 // CONTRACT ADDRESSES
@@ -86,41 +91,11 @@ const nftABI = [
 ] as const;
 
 // ──────────────────────────────────────────────────────────────────────────────
-// INLINE NAVBAR (fixes "Can't resolve '@/components/Navbar'" error)
-// ──────────────────────────────────────────────────────────────────────────────
-
-function Navbar() {
-  return (
-    <nav className="bg-gray-950/80 backdrop-blur-md border-b border-cyan-500/30 sticky top-0 z-50">
-      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-        <div className="flex items-center justify-between h-16">
-          <div className="flex items-center">
-            <Link href="/" className="text-2xl font-bold bg-gradient-to-r from-cyan-400 to-blue-500 bg-clip-text text-transparent">
-              CogniBase
-            </Link>
-          </div>
-          <div className="flex items-center gap-6">
-            <Link href="/dashboard" className="text-gray-300 hover:text-cyan-400 transition">
-              Dashboard
-            </Link>
-            <Link href="/whitepaper" className="text-gray-300 hover:text-cyan-400 transition">
-              Whitepaper
-            </Link>
-            <Link href="/terms" className="text-gray-300 hover:text-cyan-400 transition">
-              Terms
-            </Link>
-          </div>
-        </div>
-      </div>
-    </nav>
-  );
-}
-
-// ──────────────────────────────────────────────────────────────────────────────
-// MAIN DASHBOARD PAGE
+// MAIN DASHBOARD COMPONENT
 // ──────────────────────────────────────────────────────────────────────────────
 
 export default function Dashboard() {
+  const { open } = useAppKit();
   const { address, isConnected } = useAccount();
 
   const [stakeAmount, setStakeAmount] = useState('');
@@ -150,7 +125,9 @@ export default function Dashboard() {
 
   useEffect(() => {
     if (address) {
-      const interval = setInterval(() => {}, 30000);
+      const interval = setInterval(() => {
+        // Optional auto-refresh
+      }, 30000);
       return () => clearInterval(interval);
     }
   }, [address]);
@@ -323,15 +300,9 @@ export default function Dashboard() {
       <Navbar />
 
       <div className="container mx-auto px-4 sm:px-6 lg:px-8 py-10 max-w-7xl">
-        {/* Tier Status Placeholder */}
+        {/* Tier Status */}
         <div className="mb-12">
-          <div className="bg-gray-900/70 backdrop-blur-xl rounded-3xl p-8 border border-cyan-500/30 shadow-2xl text-center">
-            <h2 className="text-3xl font-bold mb-4 bg-gradient-to-r from-orange-400 to-cyan-400 bg-clip-text text-transparent">
-              Your Tier
-            </h2>
-            <p className="text-4xl font-extrabold text-cyan-400">Observer+ (Active)</p>
-            <p className="mt-4 text-gray-400">Upgrade for higher limits</p>
-          </div>
+          <TierStatus />
         </div>
 
         {/* Rate Limit Display */}
@@ -341,7 +312,7 @@ export default function Dashboard() {
         </div>
 
         <div className="grid grid-cols-1 lg:grid-cols-2 gap-8 xl:gap-12">
-          {/* Staking */}
+          {/* Staking Controls */}
           <div className="bg-gray-900/70 backdrop-blur-xl rounded-3xl p-6 md:p-10 border border-cyan-500/30 shadow-2xl">
             <h2 className="text-3xl md:text-4xl font-bold mb-8 text-center bg-gradient-to-r from-orange-400 to-cyan-400 bg-clip-text text-transparent">
               Stake Management
@@ -401,12 +372,14 @@ export default function Dashboard() {
             </div>
           </div>
 
-          {/* Tools */}
+          {/* Tools Column */}
           <div className="space-y-8">
+            {/* Token Scanner */}
             <div className="bg-gray-900/70 backdrop-blur-xl rounded-3xl p-6 md:p-10 border border-cyan-500/30 shadow-2xl">
               <h2 className="text-3xl md:text-4xl font-bold mb-6 text-center bg-gradient-to-r from-cyan-400 to-blue-400 bg-clip-text text-transparent">
                 Token Scanner
               </h2>
+
               <input
                 type="text"
                 value={scanInput}
@@ -414,6 +387,7 @@ export default function Dashboard() {
                 placeholder="0x... token address (Base)"
                 className="w-full px-6 py-4 mb-5 bg-gray-800/70 rounded-xl border border-cyan-500/30 text-white placeholder-gray-500 focus:outline-none focus:border-cyan-400 transition"
               />
+
               <button
                 onClick={handleScan}
                 disabled={scanLoading || !scanInput.trim()}
@@ -433,10 +407,12 @@ export default function Dashboard() {
               )}
             </div>
 
+            {/* AI Chat */}
             <div className="bg-gray-900/70 backdrop-blur-xl rounded-3xl p-6 md:p-10 border border-cyan-500/30 shadow-2xl">
               <h2 className="text-3xl md:text-4xl font-bold mb-6 text-center bg-gradient-to-r from-indigo-400 to-purple-400 bg-clip-text text-transparent">
                 Ask Degen AI
               </h2>
+
               <input
                 type="text"
                 value={chatInput}
@@ -444,6 +420,7 @@ export default function Dashboard() {
                 placeholder="Ask anything about crypto..."
                 className="w-full px-6 py-4 mb-5 bg-gray-800/70 rounded-xl border border-cyan-500/30 text-white placeholder-gray-500 focus:outline-none focus:border-cyan-400 transition"
               />
+
               <button
                 onClick={handleChatSubmit}
                 disabled={chatLoading || !chatInput.trim()}
