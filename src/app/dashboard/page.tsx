@@ -1,6 +1,6 @@
 // src/app/dashboard/page.tsx
-// COMPLETE FIXED VERSION - January 10, 2026
-// No duplicate Navbar - only imports real component
+// FINAL COMPLETE VERSION - January 10, 2026
+// No duplicate Navbar - only imports real component from '@/components/Navbar'
 // Full self-contained: addresses, ABIs, staking, scanner with Dune, AI chat, rate limits
 
 'use client';
@@ -33,7 +33,7 @@ function TierStatus() {
         Current Tier & Subscription
       </h2>
       <p className="text-4xl md:text-5xl font-extrabold text-cyan-400 uppercase tracking-wide">{tier}</p>
-      <p className="mt-4 text-gray-400">Stake + Unlock Protocol • Upgrade for higher limits</p>
+      <p className="mt-4 text-gray-400">Stake + Unlock Protocol • Upgrade for higher limits & features</p>
     </div>
   );
 }
@@ -351,6 +351,10 @@ export default function Dashboard() {
       setChatLoading(false);
     }
   };
+
+  // ──────────────────────────────────────────────────────────────────────────────
+  // RENDER
+  // ──────────────────────────────────────────────────────────────────────────────
 
   if (!isConnected) {
     return (
