@@ -4,6 +4,7 @@
 
 'use client';
 
+import Navbar from '@/components/Navbar';
 import { useAccount, useBalance, useReadContract, useWriteContract } from 'wagmi';
 import { formatEther, parseEther } from 'viem';
 import { useState, useEffect } from 'react';
